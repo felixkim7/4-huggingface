@@ -1,4 +1,17 @@
-!pip install transformers datasets huggingface_hub
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+get_ipython().system('pip install transformers datasets huggingface_hub')
+
+
+# In[14]:
+
 
 # @title 1. 환경 설정 및 라이브러리 설치 (Cell 1)
 """
@@ -13,7 +26,7 @@
 # !pip install ...
 
 import datasets
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset, DatasetDict, Dataset
 from transformers import pipeline
 import torch
 import pandas as pd # 데이터 확인용
@@ -21,6 +34,10 @@ import pandas as pd # 데이터 확인용
 # GPU 사용 가능 여부 확인 및 설정 (Colab에서는 보통 GPU 사용 가능)
 device = 0 if torch.cuda.is_available() else -1
 print(f"사용 가능한 디바이스: {'GPU' if device == 0 else 'CPU'}")
+
+
+# In[3]:
+
 
 # @title 2. 데이터셋 로드 및 준비
 from datasets import load_dataset
@@ -53,6 +70,10 @@ df = pd.DataFrame(nsmc_subset)
 
 print("\n데이터셋 일부 미리보기:")
 display(df.head(10))
+
+
+# In[4]:
+
 
 # @title 3. Movie Review Analysis용 컬럼 구성 (Cell 3)
 
@@ -95,6 +116,10 @@ df = df[
 
 display(df.head(10))
 
+
+# In[5]:
+
+
 # @title 4. 모델 파이프라인 로드 (Cell 4)
 """
 이 셀에서는 영화 리뷰 분석을 위한 Hugging Face 파이프라인을 로드합니다.
@@ -128,6 +153,10 @@ aspect_classifier = pipeline(
 
 print("영화 요소 분류 파이프라인 로드 완료.")
 
+
+# In[6]:
+
+
 # @title 5. 영화 리뷰 분석 라벨 정의 (Cell 5)
 
 aspect_labels = [
@@ -139,6 +168,10 @@ aspect_labels = [
 
 print("분석할 영화 요소 라벨:")
 print(aspect_labels)
+
+
+# In[7]:
+
 
 # @title 6. 파이프라인 단일 리뷰 테스트 (Cell 6)
 
@@ -152,6 +185,10 @@ print(sentiment_analyzer(sample_review))
 
 print("\n영화 요소 분류 결과:")
 print(aspect_classifier(sample_review, aspect_labels))
+
+
+# In[8]:
+
 
 # @title 7. 리뷰 분석 함수 정의 - 문장 분리 + 다중 요소 분류 (Cell 7)
 
@@ -307,6 +344,10 @@ def analyze_review(review):
         "useful_feedback": useful_feedback
     }
 
+
+# In[9]:
+
+
 # @title 8. DataFrame에 모델 적용하기 (Cell 8)
 
 # 처음에는 10개만 테스트
@@ -339,6 +380,10 @@ final_df = pd.concat(
 
 display(final_df)
 
+
+# In[10]:
+
+
 # @title 9. 전체 샘플에 적용하기 (Cell 9)
 
 working_df = df.head(100).copy()
@@ -367,6 +412,10 @@ final_df = pd.concat(
 
 display(final_df.head(20))
 
+
+# In[11]:
+
+
 # @title 10. 결과 분석 및 확인 (Cell 10)
 
 print("감성 분석 결과 분포:")
@@ -382,20 +431,37 @@ aspect_counts = {
 
 display(pd.DataFrame(aspect_counts.items(), columns=["aspect", "count"]))
 
+
+# In[15]:
+
+
 # @title 11. Hugging Face Dataset map 함수 (Cell 11)
+hf_dataset = Dataset.from_pandas(df)
 
 def add_basic_columns(example):
     review = str(example["original_review"]).strip()
 
-    example["cleaned_review"] = review.replace("ㅋ", "").replace("ㅎ", "").strip()
-    example["summary"] = example["cleaned_review"]
+    example["cleaned_review_map"] = (
+        review
+        .replace("ㅋㅋ", "")
+        .replace("ㅎㅎ", "")
+        .replace("ㅋ", "")
+        .replace("ㅎ", "")
+        .strip()
+    )
+
+    example["summary_map"] = example["cleaned_review_map"]
 
     return example
 
-mapped_dataset = train_data.map(add_basic_columns)
+mapped_dataset = hf_dataset.map(add_basic_columns)
 
 print(mapped_dataset)
 print(mapped_dataset[0])
+
+
+# In[16]:
+
 
 # @title 12. 최종 결과 확인 (Cell 12)
 
@@ -418,25 +484,37 @@ display(final_df[
     ]
 ].head(10))
 
+
+# In[17]:
+
+
 # @title 13. 감성 분석 결과 시각화 (Cell 13)
 
-import matplotlib.pyplot as plt1
+import matplotlib.pyplot as plt
 
 sentiment_counts = final_df["predicted_sentiment"].value_counts()
 
-plt1.figure(figsize=(8, 5))
+plt.figure(figsize=(8, 5))
 sentiment_counts.plot(kind="bar")
-plt1.title("Sentiment Analysis Result Distribution")
-plt1.xlabel("Predicted Sentiment")
-plt1.ylabel("Number of Reviews")
-plt1.xticks(rotation=45)
-plt1.show()
+plt.title("Sentiment Analysis Result Distribution")
+plt.xlabel("Predicted Sentiment")
+plt.ylabel("Number of Reviews")
+plt.xticks(rotation=45)
+plt.tight_layout()
+
+sentiment_graph_path = "/content/drive/MyDrive/git/4-huggingface/ASSIGNMENT/sentiment_distribution.png"
+plt.savefig(sentiment_graph_path, dpi=300, bbox_inches="tight")
+
+plt.show()
+
+print(f"감성 분석 그래프 저장 완료: {sentiment_graph_path}")
 
 
+
+# In[18]:
 
 
 # @title 14. 영화 요소별 피드백 개수 시각화 (Cell 14)
-import matplotlib.pyplot as plt2
 
 aspect_counts = {
     "plot": final_df["feedback_on_plot"].astype(bool).sum(),
@@ -452,18 +530,25 @@ aspect_df = pd.DataFrame(
 
 display(aspect_df)
 
-plt2.figure(figsize=(8, 5))
-plt2.bar(aspect_df["aspect"], aspect_df["count"])
-plt2.title("Movie Review Aspect Classification Result")
-plt2.xlabel("Aspect")
-plt2.ylabel("Number of Reviews")
-plt2.xticks(rotation=30)
-plt2.show()
+plt.figure(figsize=(8, 5))
+plt.bar(aspect_df["aspect"], aspect_df["count"])
+plt.title("Movie Review Aspect Classification Result")
+plt.xlabel("Aspect")
+plt.ylabel("Number of Reviews")
+plt.xticks(rotation=30)
+plt.tight_layout()
+
+aspect_graph_path = "/content/drive/MyDrive/git/4-huggingface/ASSIGNMENT/aspect_classification_result.png"
+plt.savefig(aspect_graph_path, dpi=300, bbox_inches="tight")
+
+plt.show()
+print(f"영화 요소 분류 그래프 저장 완료: {aspect_graph_path}")
+
+
+# In[19]:
+
 
 # @title 15. 최종 결과 Google Drive에 저장
-
-from google.colab import drive
-drive.mount('/content/drive')
 
 output_path = "/content/drive/MyDrive/git/4-huggingface/ASSIGNMENT/lecture_magnifier_nsmc_results.csv"
 
@@ -471,16 +556,3 @@ final_df.to_csv(output_path, index=False, encoding="utf-8-sig")
 
 print(f"Google Drive에 저장 완료: {output_path}")
 
-plt1.tight_layout()
-
-sentiment_graph_path = "/content/drive/MyDrive/git/4-huggingface/ASSIGNMENT/sentiment_distribution.png"
-plt1.savefig(sentiment_graph_path, dpi=300, bbox_inches="tight")
-
-print(f"감성 분석 그래프 저장 완료: {sentiment_graph_path}")
-
-plt2.tight_layout()
-
-aspect_graph_path = "/content/drive/MyDrive/git/4-huggingface/ASSIGNMENT/aspect_classification_result.png"
-plt2.savefig(aspect_graph_path, dpi=300, bbox_inches="tight")
-
-print(f"영화 요소 분류 그래프 저장 완료: {aspect_graph_path}")
